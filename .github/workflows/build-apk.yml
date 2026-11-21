@@ -31,49 +31,61 @@ jobs:
 
       - name: Fix Android SDK and Kotlin settings
         run: |
-          echo "Locating app-level Gradle file..."
-          APP_GRADLE=""
-          if [ -f "android/app/build.gradle.kts" ]; then
+           SETTINGS_GRADLE=""
+            if [ -f "android/settings.gradle.kts" ]; then SETTINGS_GRADLE="android/settings.gradle.kts"; fi
+            if [ -f "android/settings.gradle" ]; then SETTINGS_GRADLE="android/settings.gradle"; fi
+
+            if [ -n "$SETTINGS_GRADLE" ]; then
+            echo "Upgrading Kotlin version in $SETTINGS_GRADLE..."
+            # Force the Kotlin Android plugin version to a newer version
+            sed -i 's/id "org.jetbrains.kotlin.android" version ".*"/id "org.jetbrains.kotlin.android" version "2.1.0"/g' "$SETTINGS_GRADLE"
+            sed -i "s/id 'org.jetbrains.kotlin.android' version '.*'/id 'org.jetbrains.kotlin.android' version '2.1.0'/g" "$SETTINGS_GRADLE"
+            fi
+          
+           # ... (Keep the subsequent kotlin-stdlib fix logic) ...
+           echo "Locating app-level Gradle file..."
+           APP_GRADLE=""
+           if [ -f "android/app/build.gradle.kts" ]; then
             APP_GRADLE="android/app/build.gradle.kts"
-          elif [ -f "android/app/build.gradle" ]; then
+           elif [ -f "android/app/build.gradle" ]; then
             APP_GRADLE="android/app/build.gradle"
-          else
+           else
             echo "Error: Could not find app-level build.gradle file!"
             ls -la android/app/
             exit 1
-          fi
+           fi
 
-          echo "Patching $APP_GRADLE..."
-          if [[ "$APP_GRADLE" == *.kts ]]; then
+           echo "Patching $APP_GRADLE..."
+           if [[ "$APP_GRADLE" == *.kts ]]; then
             # Kotlin DSL syntax
             sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' "$APP_GRADLE"
             sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/g' "$APP_GRADLE"
-          else
+           else
             # Groovy DSL syntax
             sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 34/g' "$APP_GRADLE"
             sed -i 's/minSdk flutter.minSdkVersion/minSdk 24/g' "$APP_GRADLE"
             sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' "$APP_GRADLE"
             sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' "$APP_GRADLE"
-          fi
+           fi
 
-          if [ -f "android/gradle.properties" ]; then
+           if [ -f "android/gradle.properties" ]; then
             echo "android.suppressUnsupportedCompileSdk=34" >> android/gradle.properties
-          fi
+           fi
 
-          echo "Locating root Gradle file..."
-          ROOT_GRADLE=""
-          if [ -f "android/build.gradle.kts" ]; then
+           echo "Locating root Gradle file..."
+           ROOT_GRADLE=""
+           if [ -f "android/build.gradle.kts" ]; then
             ROOT_GRADLE="android/build.gradle.kts"
-          elif [ -f "android/build.gradle" ]; then
+           elif [ -f "android/build.gradle" ]; then
             ROOT_GRADLE="android/build.gradle"
-          fi
+           fi
 
-          if [ -n "$ROOT_GRADLE" ]; then
+           if [ -n "$ROOT_GRADLE" ]; then
             echo "Appending Kotlin dependency fixes to $ROOT_GRADLE..."
             if [[ "$ROOT_GRADLE" == *.kts ]]; then
               cat >> "$ROOT_GRADLE" << 'EOF'
 
-          subprojects {
+           subprojects {
               configurations.all {
                   resolutionStrategy {
                       force("org.jetbrains.kotlin:kotlin-stdlib:1.8.22")
@@ -81,12 +93,12 @@ jobs:
                       force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22")
                   }
               }
-          }
-          EOF
+           }
+           EOF
             else
               cat >> "$ROOT_GRADLE" << 'EOF'
 
-          subprojects {
+           subprojects {
               configurations.all {
                   resolutionStrategy {
                       force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
@@ -94,12 +106,12 @@ jobs:
                       force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
                   }
               }
-          }
-          EOF
+           }
+           EOF
             fi
-          fi
+           fi
           
-          echo "Gradle fixes applied successfully."
+           echo "Gradle fixes applied successfully."
 
       - name: Get packages
         run: flutter pub get
